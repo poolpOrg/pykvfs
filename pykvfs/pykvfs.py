@@ -32,7 +32,6 @@ class Store(object):
     def __init__(self, directory):
         self.directory = directory
 
-        # XXX initialization should be locked
         if not os.path.exists(path=os.path.join(directory, '.inited')):
             self.__initialize()
 
@@ -199,7 +198,6 @@ class Store(object):
 
     def get(self, key):
         lkp = self.key_hash(key)
-
         try:
             with open(os.path.join(self.path_namespace(), lkp[0:2], lkp + ':committed'), "rb") as fp:
                 return fp.read()
