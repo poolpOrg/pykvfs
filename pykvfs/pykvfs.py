@@ -44,7 +44,7 @@ class Store(object):
                 os.makedirs(name=os.path.join(self.directory, subdir, "%02x" % bucket), mode=0o700, exist_ok=True)
         open(os.path.join(self.directory, '.inited'), "w").close()
 
-    def _key_hash(self, key):
+    def key_hash(self, key):
         hasher = hashlib.sha256()
         hasher.update(key.encode())
         return hasher.hexdigest()
@@ -198,7 +198,7 @@ class Store(object):
 
 
     def get(self, key):
-        lkp = self._key_hash(key)
+        lkp = self.key_hash(key)
 
         try:
             with open(os.path.join(self.path_namespace(), lkp[0:2], lkp + ':committed'), "rb") as fp:
@@ -235,6 +235,9 @@ class Transaction(object):
     def path_objects(self):
         return os.path.join(self.directory, _PATH_OBJECTS)
 
+    def path_object(self, checksum):
+        return os.path.join(self.path_namespace(), checksum)
+
     def __enter__(self):
         return self
 
@@ -243,17 +246,17 @@ class Transaction(object):
             self.rollback()
 
     def put(self, key, data):
-        lkp = self.store._key(key)
+        lkp = self.store.key_hash(key)
 
         hasher = hashlib.sha256()
-        fd, filename = tempfile.mkstemp(prefix='.', dir=self.path_objects())
-        with os.fdopen(fd, "wb") as fp:
+        fdo, filename = tempfile.mkstemp(prefix='.', dir=self.path_objects())
+        with os.fdopen(fdo, "wb") as fpo:
             hasher.update(data)
-            fp.write(data)
+            fpo.write(data)
         checksum = hasher.hexdigest()
 
         # link new file to transaction object store
-        os.rename(src=filename, dst=os.path.join(self.path_objects(), checksum))
+        os.rename(src=filename, dst=self.path_object(checksum))
 
         # symlink transaction object to transaction namespace
         try:
@@ -267,11 +270,10 @@ class Transaction(object):
             os.symlink(src=checksum, dst=os.path.join(self.path_namespace(), lkp))
 
     def get(self, key):
-        lkp = self.store._key(key)
-
+        lkp = self.store.key_hash(key)
         try:
             target = os.readlink(os.path.join(self.path_namespace(), lkp))
-            with open(os.path.join(self.path_objects(), target), "rb") as fp:
+            with open(self.path_object(target), "rb") as fp:
                 return fp.read()
         except FileNotFoundError:
             return self.store.get(key)
