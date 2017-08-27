@@ -92,7 +92,7 @@ with store.transaction() as tx:
   tx.get('foobar')                # nothing
   tx.put('foobar', b'blabla')     # map 'foobar' to b'blabla' in transaction
   tx.get('foobar')                # b'blabla'
-tx.get('foobar')                  # nothing, we didn't commit, value was not written outside transaction
+store.get('foobar')               # nothing, we didn't commit, value was not written outside transaction
 
 # same but with explicit rollback
 with store.transaction() as tx:
@@ -100,7 +100,7 @@ with store.transaction() as tx:
   tx.put('foobar', b'blabla')     # map 'foobar' to b'blabla' in transaction
   tx.get('foobar')                # b'blabla'
   tx.rollback()
-tx.get('foobar')                  # nothing, we didn't commit, value was not written outside transaction
+store.get('foobar')               # nothing, we didn't commit, value was not written outside transaction
 
 # let's commit now
 with store.transaction() as tx:
@@ -108,14 +108,14 @@ with store.transaction() as tx:
   tx.put('foobar', b'blabla')     # map 'foobar' to b'blabla' in transaction
   tx.get('foobar')                # b'blabla'
   tx.commit()
-tx.get('foobar')                  # b'blabla'
+store.get('foobar')               # b'blabla'
 
 # let's start another one
 with store.transaction() as tx:
   tx.get('foobar')                # b'blabla', fetched from global store
   tx.put('foobar', b'bliblou')    # map 'foobar' to b'bliblou' in transaction
   tx.get('foobar')                # b'bliblou'
-tx.get('foobar')                  # b'blabla', fetched from global store
+store.get('foobar')               # b'blabla', fetched from global store
 
 ```
 
