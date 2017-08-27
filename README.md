@@ -60,6 +60,7 @@ Currently, pykfvs supports:
 - completely lock-less operations (as far as pykvfs is concerned)
 - `get()` in the global store
 - transactional `put()`
+- transactional `update()`
 - transactional `get()` with read-committed semantics
 - atomic commit and rollback
 - recoverable state in case of application crash within commit / rollback phases
@@ -69,7 +70,6 @@ Currently, pykfvs supports:
 
 TODO
 ----
-- add transactional `update()`
 - add transactional `delete()`
 - simplify and optimize commit stages
 - better handle conflicts
