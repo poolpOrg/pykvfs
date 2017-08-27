@@ -276,6 +276,11 @@ class Transaction(object):
         except FileNotFoundError:
             return self.store.get(key)
 
+    def update(self, key, value):
+        if not self.get(key):
+            raise KeyError
+        return self.put(key, value)
+
     def commit(self):
         if self.done:
             raise Exception
