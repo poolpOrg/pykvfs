@@ -13,6 +13,9 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
+"""
+pykfvs is a module that implements a filesystem-backed transactional key-value store.
+"""
 
 import hashlib
 import os
@@ -26,7 +29,15 @@ _PATH_TRANSACTIONS = '__transactions__'
 _PATH_COMMITS = '__commits__'
 _PATH_PURGE = '__purge__'
 
+def keyhash(key):
+    hasher = hashlib.sha256()
+    hasher.update(key.encode())
+    return hasher.hexdigest()
+
 class Store(object):
+    """
+    Storage abstraction
+    """
     def __init__(self, directory):
         self.directory = directory
 
@@ -35,16 +46,17 @@ class Store(object):
 
     def __initialize(self):
         os.makedirs(name=self.directory, mode=0o700, exist_ok=True)
-        subdirs = [self.path_commits(), self.path_purge(), self.path_objects(), self.path_namespace(), self.path_transactions()]
+        subdirs = [
+            self.path_commits(),
+            self.path_purge(),
+            self.path_objects(),
+            self.path_namespace(),
+            self.path_transactions()
+        ]
         for subdir in subdirs:
             for bucket in range(0x0, 0xff+1):
                 os.makedirs(name=os.path.join(self.directory, subdir, "%02x" % bucket), mode=0o700, exist_ok=True)
         open(os.path.join(self.directory, '.inited'), "w").close()
-
-    def key_hash(self, key):
-        hasher = hashlib.sha256()
-        hasher.update(key.encode())
-        return hasher.hexdigest()
 
     def path_objects(self):
         return os.path.join(self.directory, _PATH_OBJECTS)
@@ -69,7 +81,7 @@ class Store(object):
 
         # objects that aren't symlinked in the transaction namespace are orphans
         namespace = [_ for _ in os.scandir(os.path.join(pathname, _PATH_NAMESPACE))]
-        targets = set([os.readlink(_.path) for _ in namespace if not _.name.endswith('-') ])
+        targets = set([os.readlink(_.path) for _ in namespace if not _.name.endswith('-')])
 
         for entry in os.scandir(os.path.join(pathname, _PATH_OBJECTS)):
             name, path = entry.name, entry.path
@@ -157,13 +169,13 @@ class Store(object):
         path = os.path.join(self.path_commits(), transaction[0:2], transaction)
 
         namespace = [_ for _ in os.scandir(os.path.join(path, _PATH_NAMESPACE)) if not _.name.endswith('-')]
-        targets = set([os.readlink(_.path) for _ in namespace ])
+        targets = set([os.readlink(_.path) for _ in namespace])
 
         if not targets:
             self.__commit_finalize(transaction)
             return
 
-        # XXX - tricky magic happens here to maintain atomicity
+        # tricky magic happens here to maintain atomicity
 
         # 1st stage, synchronize transaction objects with store
         # 2nd stage, synchronize transaction namespace with store
@@ -195,18 +207,18 @@ class Store(object):
 
 
     def get(self, key):
-        lkp = self.key_hash(key)
+        lkp = keyhash(key)
         try:
-            with open(os.path.join(self.path_namespace(), lkp[0:2], lkp + ':committed'), "rb") as fp:
-                return fp.read()
+            with open(os.path.join(self.path_namespace(), lkp[0:2], lkp + ':committed'), "rb") as fpn:
+                return fpn.read()
         except FileNotFoundError:
             pass
         except PermissionError:
             pass
 
         try:
-            with open(os.path.join(self.path_namespace(), lkp[0:2], lkp), "rb") as fp:
-                return fp.read()
+            with open(os.path.join(self.path_namespace(), lkp[0:2], lkp), "rb") as fpn:
+                return fpn.read()
         except FileNotFoundError:
             return None
 
@@ -242,7 +254,7 @@ class Transaction(object):
             self.rollback()
 
     def put(self, key, data):
-        lkp = self.store.key_hash(key)
+        lkp = keyhash(key)
 
         hasher = hashlib.sha256()
         fdo, filename = tempfile.mkstemp(prefix='.', dir=self.path_objects())
@@ -266,11 +278,11 @@ class Transaction(object):
             os.symlink(src=checksum, dst=os.path.join(self.path_namespace(), lkp))
 
     def get(self, key):
-        lkp = self.store.key_hash(key)
+        lkp = keyhash(key)
         try:
             target = os.readlink(os.path.join(self.path_namespace(), lkp))
-            with open(self.path_object(target), "rb") as fp:
-                return fp.read()
+            with open(self.path_object(target), "rb") as fpn:
+                return fpn.read()
         except FileNotFoundError:
             return self.store.get(key)
 
