@@ -17,8 +17,6 @@
 import hashlib
 import os
 import os.path
-import posix
-import sys
 import tempfile
 import uuid
 
