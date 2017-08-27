@@ -44,6 +44,10 @@ class Store(object):
                 os.makedirs(name=os.path.join(self.directory, subdir, "%02x" % bucket), mode=0o700, exist_ok=True)
         open(os.path.join(self.directory, '.inited'), "w").close()
 
+    def _key_hash(self, key):
+        hasher = hashlib.sha256()
+        hasher.update(key.encode())
+        return hasher.hexdigest()
 
     def path_objects(self):
         return os.path.join(self.directory, _PATH_OBJECTS)
@@ -194,12 +198,10 @@ class Store(object):
 
 
     def get(self, key):
-        hasher = hashlib.sha256()
-        hasher.update(key.encode())
-        name = hasher.hexdigest()
+        lkp = self._key_hash(key)
 
         try:
-            with open(os.path.join(self.path_namespace(), name[0:2], name + ':committed'), "rb") as fp:
+            with open(os.path.join(self.path_namespace(), lkp[0:2], lkp + ':committed'), "rb") as fp:
                 return fp.read()
         except FileNotFoundError:
             pass
@@ -207,7 +209,7 @@ class Store(object):
             pass
 
         try:
-            with open(os.path.join(self.path_namespace(), name[0:2], name), "rb") as fp:
+            with open(os.path.join(self.path_namespace(), lkp[0:2], lkp), "rb") as fp:
                 return fp.read()
         except FileNotFoundError:
             return None
@@ -241,9 +243,7 @@ class Transaction(object):
             self.rollback()
 
     def put(self, key, data):
-        hasher = hashlib.sha256()
-        hasher.update(key.encode())
-        name = hasher.hexdigest()
+        lkp = self.store._key(key)
 
         hasher = hashlib.sha256()
         fd, filename = tempfile.mkstemp(prefix='.', dir=self.path_objects())
@@ -257,22 +257,20 @@ class Transaction(object):
 
         # symlink transaction object to transaction namespace
         try:
-            target = os.readlink(os.path.join(self.path_namespace(), name))
+            target = os.readlink(os.path.join(self.path_namespace(), lkp))
             if target != checksum:
-                os.symlink(src=checksum, dst=os.path.join(self.path_namespace(), name))
+                os.symlink(src=checksum, dst=os.path.join(self.path_namespace(), lkp))
         except FileExistsError:
-            os.unlink(path=os.path.join(self.path_namespace(), name))
-            os.symlink(src=checksum, dst=os.path.join(self.path_namespace(), name))
+            os.unlink(path=os.path.join(self.path_namespace(), lkp))
+            os.symlink(src=checksum, dst=os.path.join(self.path_namespace(), lkp))
         except FileNotFoundError:
-            os.symlink(src=checksum, dst=os.path.join(self.path_namespace(), name))
+            os.symlink(src=checksum, dst=os.path.join(self.path_namespace(), lkp))
 
     def get(self, key):
-        hasher = hashlib.sha256()
-        hasher.update(key.encode())
-        name = hasher.hexdigest()
+        lkp = self.store._key(key)
 
         try:
-            target = os.readlink(os.path.join(self.path_namespace(), name))
+            target = os.readlink(os.path.join(self.path_namespace(), lkp))
             with open(os.path.join(self.path_objects(), target), "rb") as fp:
                 return fp.read()
         except FileNotFoundError:
