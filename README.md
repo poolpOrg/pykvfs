@@ -35,7 +35,7 @@ Within a transaction, inserts are done in the local store, lookups are done in t
 
 Upon rollback, the transaction store is purged.
 
-Upon commit, the transaction store is moved to a commit space and a commit phase merges the transaction to global stores.
+Upon commit, the transaction store is moved to a commit space and a (quite complex) commit phase merges the transaction to global store.
 
 
 Requires
@@ -56,12 +56,13 @@ Features
 This is a work in progress, bugs are bound to happen and ruin your data.
 
 Currently, pykfvs supports:
-- concurrent accesses to the store from multiple transactions
+- concurrent access to the store from multiple transactions/processes/threads
+- completely lock-less operations (as far as pykvfs is concerned)
 - `get()` in the global store
 - transactional `put()`
 - transactional `get()` with read-committed semantics
 - atomic commit and rollback
-- recoverable state in case of application crash
+- recoverable state in case of application crash within commit / rollback phases
 - storage deduplication for values
 - best-effort handling of conflicting commits to same keys 
 
